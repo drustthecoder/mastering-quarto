@@ -6,14 +6,14 @@ import pickle
 if __name__ == '__main__':
     sampleGame = Quarto()
     agentRandom = AgentRandom(sampleGame)
-    agentRL = AgentRL(sampleGame, learn=True)
+    agentRL = AgentRL(sampleGame, learn_flag=True)
     players = (agentRL, agentRandom)
     sampleGame.set_players((agentRL, agentRandom))
     agentRL_win_count = 0
     agentRandom_win_count = 0
     tie_count = 0
     total_count = 1
-    cycles = 1000
+    cycles = 100000
     for i in range(cycles):
         if i%100==0:
             print(f"{round(i/cycles*100, 1)}% completed! agentRL win ratio: {round(agentRL_win_count/total_count, 4)}")
@@ -36,18 +36,13 @@ if __name__ == '__main__':
                 piece_ok = sampleGame.place(c, r)
             winner = sampleGame.check_winner()
             if current_player==0:
+                # here winner is -1 or 0
                 reward = 0 if winner==0 else -1
                 board_status = sampleGame.get_board_status()
                 board_data = agentRL.get_row_column_diagonals_as_states(board_status, c, r)
                 for state in board_data:
                     agentRL.update_state_history(state, reward)
-                
-                # code for choose_piece learning
-                # reward = 0 if winner == 0 else -1
-                # board_status = sampleGame.get_board_status()
-                # for i in range(4):
-                #     state = [e for e in board_status[i]]
-                #     agentRL.update_choose_piece_state_history(state, reward)
+
         if winner==0:
             agentRL.learn()
             agentRL_win_count+=1
@@ -57,8 +52,10 @@ if __name__ == '__main__':
             tie_count+=1
         agentRL.reset_state_history()
         total_count+=1
-    print(f"len(agentRL.G)={len(agentRL.G)}") 
+    print(f"len(agentRL.G_choose_piece)={len(agentRL.G_choose_piece)}") 
     print(f"agentRL win count: {agentRL_win_count}, agentRandom win count: {agentRandom_win_count}, ties: {tie_count}!")
     # with open('G.pkl', 'wb') as file:
     #     pickle.dump(agentRL.G, file)
+    # print(agentRL.G_choose_piece)
+    # print(len(agentRL.G_choose_piece))
          

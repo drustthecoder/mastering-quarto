@@ -42,6 +42,6 @@ def evaluate(sampleGame, cycles=50):
         else:
             tie_count+=1
             # print('(TIE)', end="")
-        print(f"{type(players[0]).__name__} won: {round(agent1_win_count/total_games, 2)}, {type(players[1]).__name__} won: {round(agent2_win_count/total_games, 2)}, ties: {round(tie_count/total_games, 2)}, played {total_games} times!          ", end="\r")
+        print(f"{type(players[0]).__name__} won: {round(agent1_win_count/total_games, 3)}, {type(players[1]).__name__} won: {round(agent2_win_count/total_games, 3)}, ties: {round(tie_count/total_games, 3)}, played {total_games} times!            ", end="\r")
     print("\n----------")
     # print(f"Played a total of {total_games} times!")

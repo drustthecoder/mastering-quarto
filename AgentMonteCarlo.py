@@ -6,13 +6,21 @@ import copy
 import datetime
 
 class AgentMonteCarlo(Player):
-    def __init__(self, game: Quarto, time_limit=1, simulate_policy=True):
+    def __init__(self, game: Quarto, time_limit=250, simulate_policy=True):
         self.game = game
         # How long should it take (in seconds) for place_piece() to return the answer
         self.time_limit = time_limit
         # When looking in the future, should we simulate our own policy when it's our turn or should we use random steps
         self.simulate_policy = simulate_policy
     
+    def copy_game(self, original_game, this_agent):
+        gameCopy = Quarto()
+        gameCopy._Quarto__board = copy.deepcopy(original_game._Quarto__board)
+        gameCopy._Quarto__current_player = copy.deepcopy(original_game._Quarto__current_player)
+        gameCopy._Quarto__selected_piece_index = copy.deepcopy(original_game._Quarto__selected_piece_index)
+        gameCopy._Quarto__players = [original_game._Quarto__players[this_agent] for i in range(2)]
+        return gameCopy
+
     def get_free_pieces(self, board_status):
         played_pieces = [e for e in board_status[board_status!=-1]]
         return list(set(range(16))-set(played_pieces))
@@ -30,12 +38,12 @@ class AgentMonteCarlo(Player):
         # Look in the future, Try each piece in every free place on board
         for piece in free_pieces:
             for place in free_places:
-                gameCopy = copy.deepcopy(mygame)
+                gameCopy = self.copy_game(mygame, mygame._Quarto__current_player)
                 gameCopy.select(piece)
                 gameCopy._Quarto__current_player = 1 - gameCopy._Quarto__current_player
                 gameCopy.place(*place)
                 winner = gameCopy.check_winner()
-                if winner==gameCopy.gameCopy._Quarto__current_player:
+                if winner==gameCopy._Quarto__current_player:
                     #opponent wins
                     G[piece]-=1
             # if this piece does not result in loss in any place (never got a -1), return it without checking other pieces
@@ -58,12 +66,12 @@ class AgentMonteCarlo(Player):
         # Look in the future, Try each piece in every free place on board
         for piece in free_pieces:
             for place in free_places:
-                gameCopy = copy.deepcopy(self.game)
+                gameCopy = self.copy_game(self.game, 1 - self.game._Quarto__current_player)
                 gameCopy.select(piece)
                 gameCopy._Quarto__current_player = 1 - gameCopy._Quarto__current_player
                 gameCopy.place(*place)
                 winner = gameCopy.check_winner()
-                if winner==gameCopy.gameCopy._Quarto__current_player:
+                if winner==gameCopy._Quarto__current_player:
                     #opponent wins
                     G[piece]-=1
             # if this piece does not result in loss in any place (never got a -1), return it without checking other pieces
@@ -81,7 +89,7 @@ class AgentMonteCarlo(Player):
         # Try piece in every free place and if results in win, return the found place
         free_places = self.get_free_places(mygame.get_board_status())
         for place in free_places:
-            gameCopy = copy.deepcopy(mygame)
+            gameCopy = self.copy_game(mygame, mygame._Quarto__current_player)
             gameCopy.place(*place)
             winner = gameCopy.check_winner()
             if winner==gameCopy._Quarto__current_player:
@@ -91,12 +99,12 @@ class AgentMonteCarlo(Player):
         return random.choice(free_places)
 
     def place_piece(self):
-        t1 = datetime.datetime.now()
+        
         this_agent = self.game._Quarto__current_player
         # Try piece in every free place and if results in win, return the found place
         free_places = self.get_free_places(self.game.get_board_status())
         for place in free_places:
-            gameCopy = copy.deepcopy(self.game)
+            gameCopy = self.copy_game(self.game, self.game._Quarto__current_player)
             gameCopy.place(*place)
             winner = gameCopy.check_winner()
             if winner==gameCopy._Quarto__current_player:
@@ -106,14 +114,17 @@ class AgentMonteCarlo(Player):
         G = {}
         for place in free_places:
             G[place] = 0
-        elapsed = datetime.datetime.now() - t1
+        # elapsed = datetime.datetime.now() - t1
         counter = 0
         # While we have time, play the game until the game until the end for each current empty place on board as many times as possbile.
-        game_small = copy.deepcopy(self.game)
-        game_small._Quarto__players = []
-        while elapsed.seconds < self.time_limit:
+        loop_counter = 0
+        first_loop_flag = True
+        t1 = datetime.datetime.now().timestamp()
+        while first_loop_flag or elapsed < self.time_limit:
+            loop_counter+=1
+            first_loop_flag = False
             for place in free_places:
-                gameCopy = copy.deepcopy(game_small)
+                gameCopy = self.copy_game(self.game, this_agent)
                 gameCopy.place(*place)
                 # we don't check for win because we know that no piece results in instant win
                 game_winner=-1
@@ -130,7 +141,7 @@ class AgentMonteCarlo(Player):
                     if self.simulate_policy and gameCopy.get_player()==this_agent:
                         gameCopy.place(*self.simulate_place_piece(gameCopy))
                     else:
-                        game_free_places = gameCopy.get_board_free_places()
+                        game_free_places = self.get_free_places(gameCopy.get_board_status())
                         gameCopy.place(*random.choice(game_free_places))
                     game_winner = gameCopy.check_winner()
                 # Give score to each place based on the result of the random play.
@@ -139,8 +150,10 @@ class AgentMonteCarlo(Player):
                 else:
                     G[place]-=1
             counter+=1
-            elapsed = datetime.datetime.now() - t1
+            elapsed = (datetime.datetime.now().timestamp() - t1)*1000 # in microseconds, 1000 microseconds = 1 second
+            # print(elapsed)
         # Choose the place that has the highest score
+        # print(loop_counter)
         maxG = -10e15
         for place in free_places:
             if G[place]>=maxG:
