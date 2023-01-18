@@ -1,6 +1,6 @@
 from main import RandomPlayer
 from quarto import Quarto
-from agentRL import AgentRL
+from agents.AgentRL import AgentRL
 import pickle
 
 if __name__ == '__main__':
