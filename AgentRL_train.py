@@ -1,11 +1,11 @@
-from main import RandomPlayer
 from quarto import Quarto
-from agents.AgentRL import AgentRL
+from AgentRL import AgentRL
+from AgentRandom import AgentRandom
 import pickle
 
 if __name__ == '__main__':
     sampleGame = Quarto()
-    agentRandom = RandomPlayer(sampleGame)
+    agentRandom = AgentRandom(sampleGame)
     agentRL = AgentRL(sampleGame, learn=True)
     players = (agentRL, agentRandom)
     sampleGame.set_players((agentRL, agentRandom))
@@ -13,7 +13,7 @@ if __name__ == '__main__':
     agentRandom_win_count = 0
     tie_count = 0
     total_count = 1
-    cycles = 20000
+    cycles = 1000
     for i in range(cycles):
         if i%100==0:
             print(f"{round(i/cycles*100, 1)}% completed! agentRL win ratio: {round(agentRL_win_count/total_count, 4)}")
@@ -41,6 +41,13 @@ if __name__ == '__main__':
                 board_data = agentRL.get_row_column_diagonals_as_states(board_status, c, r)
                 for state in board_data:
                     agentRL.update_state_history(state, reward)
+                
+                # code for choose_piece learning
+                # reward = 0 if winner == 0 else -1
+                # board_status = sampleGame.get_board_status()
+                # for i in range(4):
+                #     state = [e for e in board_status[i]]
+                #     agentRL.update_choose_piece_state_history(state, reward)
         if winner==0:
             agentRL.learn()
             agentRL_win_count+=1
@@ -52,6 +59,6 @@ if __name__ == '__main__':
         total_count+=1
     print(f"len(agentRL.G)={len(agentRL.G)}") 
     print(f"agentRL win count: {agentRL_win_count}, agentRandom win count: {agentRandom_win_count}, ties: {tie_count}!")
-    with open('G.pkl', 'wb') as file:
-        pickle.dump(agentRL.G, file)
+    # with open('G.pkl', 'wb') as file:
+    #     pickle.dump(agentRL.G, file)
          
