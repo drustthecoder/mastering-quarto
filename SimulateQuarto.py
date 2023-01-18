@@ -1,45 +1,18 @@
-# Free for personal or classroom use; see 'LICENSE.md' for details.
-# https://github.com/squillero/computational-intelligence
-
+from quarto import Player, Piece, Quarto
 import numpy as np
-from abc import abstractmethod
 import copy
 
-
-class Player(object):
-
-    def __init__(self, quarto) -> None:
-        self.__quarto = quarto
-
-    @abstractmethod
-    def choose_piece(self) -> int:
-        pass
-
-    @abstractmethod
-    def place_piece(self) -> tuple[int, int]:
-        pass
-
-    def get_game(self):
-        return self.__quarto
-
-
-class Piece(object):
-
-    def __init__(self, high: bool, coloured: bool, solid: bool, square: bool) -> None:
-        self.HIGH = high
-        self.COLOURED = coloured
-        self.SOLID = solid
-        self.SQUARE = square
-
-
-class Quarto(object):
+class SimulateQuarto(object):
 
     MAX_PLAYERS = 2
     BOARD_SIDE = 4
 
-    def __init__(self) -> None:
-        self.__players = ()
-        self.reset()
+    def __init__(self, original_game: Quarto) -> None:
+        self.__players = [copy.deepcopy(original_game._Quarto__board)(original_game._Quarto__players[original_game._Quarto__current_player]) for i in range(2)]
+        self.__board = copy.deepcopy(original_game._Quarto__board)
+        self.__pieces = copy.deepcopy(original_game._Quarto__pieces)
+        self.__current_player = copy.deepcopy(original_game._Quarto__current_player)
+        self.__selected_piece_index = copy.deepcopy(original_game._Quarto__selected_piece_index)
 
 
     def reset(self):
@@ -280,32 +253,3 @@ class Quarto(object):
                 if elem == -1:
                     return False
         return True
-
-    def run(self) -> int:
-        '''
-        Run the game (with output for every move)
-        '''
-        winner = -1
-        while winner < 0 and not self.check_finished():
-            self.print()
-            piece_ok = False
-            while not piece_ok:
-                piece_ok = self.select(self.__players[self.__current_player].choose_piece())
-            piece_ok = False
-            self.__current_player = (self.__current_player + 1) % self.MAX_PLAYERS
-            self.print()
-            while not piece_ok:
-                x, y = self.__players[self.__current_player].place_piece()
-                piece_ok = self.place(x, y)
-            winner = self.check_winner()
-        self.print()
-        return winner
-
-    def get_player(self):
-        return self.__current_player
-    
-    def set_player(self, player):
-        self.__current_player = player
-
-    def get_players(self):
-        return self.__players
