@@ -3,10 +3,13 @@ import numpy as np
 import random
 import pickle
 import copy
+import datetime
+import logging
 
 class AgentRL(Player):
-    def __init__(self, game: Quarto, learn_flag = False, alpha=0.2, random_factor=0.1):  # 80% explore, 20% exploit
+    def __init__(self, game: Quarto, learn_flag = False, time_limit=200, alpha=0.2, random_factor=0.1):  # 80% explore, 20% exploit
         self.game = game
+        self.time_limit = time_limit # microseconds
         self.state_history = []  # state, reward
         self.alpha = alpha
         self.random_factor = random_factor
@@ -44,13 +47,57 @@ class AgentRL(Player):
             tuple(np.fliplr(board_status).diagonal().copy()) + (r, )
         )
     
-    def copy_game(self):
+    def copy_game(self, mygame: Quarto):
         gameCopy = Quarto()
-        gameCopy._Quarto__board = copy.deepcopy(self.game._Quarto__board)
-        gameCopy._Quarto__current_player = copy.deepcopy(self.game._Quarto__current_player)
-        gameCopy._Quarto__selected_piece_index = copy.deepcopy(self.game._Quarto__selected_piece_index)
+        gameCopy._Quarto__board = copy.deepcopy(mygame._Quarto__board)
+        gameCopy._Quarto__current_player = copy.deepcopy(mygame._Quarto__current_player)
+        gameCopy._Quarto__selected_piece_index = copy.deepcopy(mygame._Quarto__selected_piece_index)
         return gameCopy
 
+    def simulate_place_piece(self, mygame):
+        # if self.random_place_piece:
+        #     return random.randint(0, 3), random.randint(0, 3)
+        # Try piece in every free place and if results in win, return the found place
+        board_status = mygame.get_board_status()
+        free_places = self.get_free_places(board_status)
+        for place in free_places:
+            gameCopy = self.copy_game(mygame)
+            gameCopy.place(*place)
+            winner = gameCopy.check_winner()
+            if winner==gameCopy._Quarto__current_player:
+                # we win
+                return place
+        # No piece results in win, return a random one
+        return random.choice(free_places)
+
+    def simulate_choose_piece(self, mygame: Quarto) -> int:
+        if self.learn_flag:
+            return random.randint(0, 15)
+        board_status = mygame.get_board_status()
+        free_pieces = self.get_free_pieces(board_status)
+        free_places = self.get_free_places(board_status)
+        score={} 
+        for piece in free_pieces:
+            score[piece] = 0
+        pieces_with_zero_loss = []
+        # Look in the future, Try each piece in every free place on board
+        for piece in free_pieces:
+            for place in free_places:
+                gameCopy = self.copy_game(mygame)
+                gameCopy.select(piece)
+                gameCopy._Quarto__current_player = 1-gameCopy._Quarto__current_player
+                gameCopy.place(*place)
+                winner = gameCopy.check_winner()
+                if winner==gameCopy._Quarto__current_player:
+                    #opponent wins
+                    score[piece]-=1
+        max_score = -10e15
+        for piece in free_pieces:
+            if score[piece] >= max_score:
+                selected_piece = piece
+                max_score = score[piece]
+        return selected_piece
+            
     def place_piece(self) -> tuple[int, int]:
         # return random.randint(0, 3), random.randint(0, 3)
         maxG = -10e15
@@ -71,35 +118,98 @@ class AgentRL(Player):
         return place_here
     
     def choose_piece(self) -> int:
+        logging.debug("Choose piece...")
         if self.learn_flag:
             return random.randint(0, 15)
         board_status = self.game.get_board_status()
         free_pieces = self.get_free_pieces(board_status)
         free_places = self.get_free_places(board_status)
-        G={} 
+        score={} 
         for piece in free_pieces:
-            G[piece] = 0
+            score[piece] = 0
+        pieces_with_zero_loss = []
         # Look in the future, Try each piece in every free place on board
         for piece in free_pieces:
             for place in free_places:
-                gameCopy = self.copy_game()
+                gameCopy = self.copy_game(self.game)
                 gameCopy.select(piece)
                 gameCopy._Quarto__current_player = 1-gameCopy._Quarto__current_player
                 gameCopy.place(*place)
                 winner = gameCopy.check_winner()
                 if winner==gameCopy._Quarto__current_player:
                     #opponent wins
-                    G[piece]-=1
+                    score[piece]-=1
             # if this piece does not result in loss in any place (never got a -1), return it without checking other pieces
-            if G[piece]==0:
-                return piece
-        # If we're here, we only have bad pieces, choose the one which is the least bad
-        maxG = -10e15
-        for piece in free_pieces:
-            if G[piece] >= maxG:
-                selected_piece = piece
-                maxG = G[piece]
-        return selected_piece
+            if score[piece]==0:
+                pieces_with_zero_loss.append(piece)
+        if len(pieces_with_zero_loss)==0:
+            # If we're here, we only have bad pieces, choose the one which is the least bad
+            max_score = -10e15
+            for piece in free_pieces:
+                if score[piece] >= max_score:
+                    selected_piece = piece
+                    max_score = score[piece]
+            logging.debug("No winning piece! Returned the least bad piece!")
+            return selected_piece
+        elif len(pieces_with_zero_loss)==1:
+            # we have one best piece, return it
+            logging.debug("Returned the only no-loss piece!")
+            return pieces_with_zero_loss[0]
+        elif len(pieces_with_zero_loss)<8:
+            # Choose the best of the best
+            logging.debug("Let's look into the future with a small amount of no-loss pieces!")
+            this_agent = self.game._Quarto__current_player
+            G = {}
+            for piece in pieces_with_zero_loss:
+                G[piece] = 0
+            counter = 0
+            loop_counter = 0
+            first_loop_flag = True
+            t1 = datetime.datetime.now().timestamp()
+            elapsed = 0
+            # While we have time, play the game until the game until the end for each current empty place on board as many times as possbile.
+            while first_loop_flag or elapsed < self.time_limit:
+                loop_counter+=1
+                first_loop_flag = False
+                for piece in pieces_with_zero_loss:
+                    if elapsed > self.time_limit:
+                        logging.debug("Oops! Taking too much time to look into the future! Break!")
+                        break
+                    gameCopy = self.copy_game(self.game)
+                    game_winner=-1
+                    while game_winner<0 and not gameCopy.check_finished():
+                        # player chooses piece
+                        # game_free_pieces = self.get_free_pieces(gameCopy.get_board_status())
+                        # gameCopy.select(random.choice(game_free_pieces))
+                        gameCopy.select(self.simulate_choose_piece(gameCopy))
+                        # player changes
+                        gameCopy._Quarto__current_player = 1-gameCopy._Quarto__current_player
+                        # player places the piece
+                        # game_free_places = self.get_free_places(gameCopy.get_board_status())
+                        # gameCopy.place(*random.choice(game_free_places))
+                        gameCopy.place(*self.simulate_place_piece(gameCopy))
+                        game_winner = gameCopy.check_winner()
+                    # Give score to each place based on the result of the random play.
+                    if game_winner==this_agent:
+                        G[piece]+=1
+                    # else:
+                    #     G[piece]-=1
+                    elapsed = (datetime.datetime.now().timestamp() - t1)*1000 # in microseconds, 1000 microseconds = 1 second
+                counter+=1
+                
+            # on while exit
+            maxG = -10e15
+            for piece in pieces_with_zero_loss:
+                if G[piece]>=maxG:
+                    maxG=G[piece]
+                    selected_piece = piece
+            logging.debug(f"elapsed {elapsed} ms, played {loop_counter} random games!")
+            logging.debug(G)
+            logging.debug(f"chose {selected_piece}")
+            return selected_piece
+        else:
+            logging.debug("Too many pieces with zero loss, let's return a random one!")
+            return random.choice(pieces_with_zero_loss)
 
     def update_state_history(self, state, reward):
         self.state_history.append((state, reward))
