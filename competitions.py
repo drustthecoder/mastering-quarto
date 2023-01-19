@@ -13,9 +13,9 @@ game = Quarto()
 # evaluate(game, 100)
 
 game.reset()
-game.set_players((AgentRL(game, time_limit=500), AgentRandom(game)))
+game.set_players((AgentRL(game), AgentRandom(game)))
 # logging.basicConfig(level=logging.DEBUG)
-evaluate(game, 100)
+evaluate(game, 1000)
 
 # game.reset()
 # game.set_players((AgentRL(game, time_limit=1000), AgentRandom(game)))

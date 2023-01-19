@@ -7,8 +7,9 @@ import datetime
 import logging
 
 class AgentRL(Player):
-    def __init__(self, game: Quarto, learn_flag = False, time_limit=200, alpha=0.2, random_factor=0.1):  # 80% explore, 20% exploit
+    def __init__(self, game: Quarto, learn_flag = False, time_limit=0, simulate_policy_in_MonteCarlo=True, alpha=0.2, random_factor=0.1):  # 80% explore, 20% exploit
         self.game = game
+        self.simulate_policy_in_MonteCarlo = simulate_policy_in_MonteCarlo
         self.time_limit = time_limit # microseconds
         self.state_history = []  # state, reward
         self.alpha = alpha
@@ -155,7 +156,7 @@ class AgentRL(Player):
             # we have one best piece, return it
             logging.debug("Returned the only no-loss piece!")
             return pieces_with_zero_loss[0]
-        elif len(pieces_with_zero_loss)<8:
+        elif len(pieces_with_zero_loss)<4 and self.time_limit!=0:
             # Choose the best of the best
             logging.debug("Let's look into the future with a small amount of no-loss pieces!")
             this_agent = self.game._Quarto__current_player
@@ -179,15 +180,19 @@ class AgentRL(Player):
                     game_winner=-1
                     while game_winner<0 and not gameCopy.check_finished():
                         # player chooses piece
-                        # game_free_pieces = self.get_free_pieces(gameCopy.get_board_status())
-                        # gameCopy.select(random.choice(game_free_pieces))
-                        gameCopy.select(self.simulate_choose_piece(gameCopy))
+                        if self.simulate_policy_in_MonteCarlo:
+                            gameCopy.select(self.simulate_choose_piece(gameCopy))
+                        else:
+                            game_free_pieces = self.get_free_pieces(gameCopy.get_board_status())
+                            gameCopy.select(random.choice(game_free_pieces))
                         # player changes
                         gameCopy._Quarto__current_player = 1-gameCopy._Quarto__current_player
                         # player places the piece
-                        # game_free_places = self.get_free_places(gameCopy.get_board_status())
-                        # gameCopy.place(*random.choice(game_free_places))
-                        gameCopy.place(*self.simulate_place_piece(gameCopy))
+                        if self.simulate_policy_in_MonteCarlo:
+                            gameCopy.place(*self.simulate_place_piece(gameCopy))
+                        else:
+                            game_free_places = self.get_free_places(gameCopy.get_board_status())
+                            gameCopy.place(*random.choice(game_free_places))
                         game_winner = gameCopy.check_winner()
                     # Give score to each place based on the result of the random play.
                     if game_winner==this_agent:
