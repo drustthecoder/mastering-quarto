@@ -13,7 +13,7 @@ game = Quarto()
 # evaluate(game, 100)
 
 game.reset()
-game.set_players((AgentRL(game), AgentRandom(game)))
+game.set_players((AgentRL(game, endgame_tree_search=True, endgame_num_of_pieces=6, endgame_num_of_places=6), AgentRandom(game)))
 # logging.basicConfig(level=logging.DEBUG)
 evaluate(game, 1000)
 
