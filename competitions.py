@@ -6,25 +6,14 @@ from evaluate import evaluate
 from quarto import Quarto
 import logging
 
+
 game = Quarto()
 
-# game.reset()
-# game.set_players((AgentShortSighted(game, random_place_piece=True), AgentRandom(game)))
-# evaluate(game, 100)
-
 game.reset()
-game.set_players((AgentRL(game, endgame_tree_search=True, endgame_num_of_pieces=6, endgame_num_of_places=6), AgentRandom(game)))
-# logging.basicConfig(level=logging.DEBUG)
-evaluate(game, 1000)
-
-# game.reset()
-# game.set_players((AgentRL(game, time_limit=1000), AgentRandom(game)))
-# evaluate(game, 1000)
-
-# game.reset()
-# game.set_players((AgentShortSighted(game), AgentRL(game)))
-# evaluate(game, 50)
-
-# game.reset()
-# game.set_players((AgentMonteCarlo(game), AgentRL(game)))
-# evaluate(game, 50)
+game.set_players((
+    AgentRL(game, tree_search_for_endgame_choose_piece_enabled=True),
+    AgentRandom(game)))
+logging.basicConfig(level=logging.DEBUG)
+evaluate(game, 1000,
+    print_end_value="\n"
+    )
