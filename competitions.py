@@ -11,9 +11,9 @@ game = Quarto()
 
 game.reset()
 game.set_players((
-    AgentRL(game, tree_search_for_endgame_choose_piece_enabled=True),
+    AgentRL(game),
     AgentRandom(game)))
 logging.basicConfig(level=logging.DEBUG)
-evaluate(game, 1000,
-    print_end_value="\n"
+evaluate(game, 100,
+    print_end_value="\r"
     )

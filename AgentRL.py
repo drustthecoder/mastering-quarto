@@ -11,7 +11,9 @@ class AgentRL(Player):
         self, game: Quarto,
         learn_flag = False,
 
-        choose_piece_time_limit = 3600,
+        choose_piece_time_limit = 500,
+
+        choose_piece_enabled = True,
 
         MonteCarlo_for_endgame_choose_piece_enabled = False,
         MonteCarlo_simulate_policy_enabled = False,
@@ -19,8 +21,8 @@ class AgentRL(Player):
         MonteCarlo_endgame_num_of_places = 9,
 
         tree_search_for_endgame_choose_piece_enabled = False,
-        tree_search_endgame_num_of_pieces = 3,
-        tree_search_endgame_num_of_places = 9,
+        tree_search_endgame_num_of_pieces = 5,
+        tree_search_endgame_num_of_places = 5,
 
         alpha=0.2,
         random_factor=0.1):  # 80% explore, 20% exploit
@@ -34,6 +36,7 @@ class AgentRL(Player):
         self.tree_search_endgame_num_of_places = tree_search_endgame_num_of_places
         self.tree_search_for_endgame_choose_piece_enabled = tree_search_for_endgame_choose_piece_enabled
         self.choose_piece_time_limit = choose_piece_time_limit # microseconds
+        self.choose_piece_enabled = choose_piece_enabled
         self.state_history = []  # state, reward
         self.alpha = alpha
         self.random_factor = random_factor
@@ -54,34 +57,6 @@ class AgentRL(Player):
                     for d in possible_pieces:
                         for i in range(board_size):
                             self.G[(a, b, c, d, i)] = np.random.uniform(low=0.1, high=1)
-
-    def check_children(self, mygame: Quarto, place, piece, this_agent):
-        # Play the game
-        gameCopy = self.copy_game(mygame)
-        gameCopy.select(piece)
-        gameCopy._Quarto__current_player = 1 - mygame._Quarto__current_player
-        gameCopy.place(*place)
-        winner = gameCopy.check_winner()
-        finished = gameCopy.check_finished()
-
-        # If game finishes and there is no children
-        if winner==this_agent:
-            return 1
-        elif winner==1-this_agent:
-            return -1
-        if finished:
-            return 0
-
-        # If game goes on
-        board_status = gameCopy.get_board_status()
-        free_pieces = self.get_free_pieces(board_status)
-        free_places = self.get_free_places(board_status)
-        value = 0
-        # check all the children of the children
-        for piece in free_pieces:
-            for place in free_places:
-                value += self.check_children(gameCopy, place, piece, this_agent)
-        return value
 
     def get_free_pieces(self, board_status):
         played_pieces = [e for e in board_status[board_status!=-1]]
@@ -163,7 +138,7 @@ class AgentRL(Player):
     
     def choose_piece(self) -> int:
         # logging.debug("Choose piece...")
-        if self.learn_flag:
+        if self.learn_flag or not self.choose_piece_enabled:
             return random.randint(0, 15)
         board_status = self.game.get_board_status()
         free_pieces = self.get_free_pieces(board_status)
@@ -232,6 +207,36 @@ class AgentRL(Player):
         elapsed = (datetime.datetime.now().timestamp() - t1)*1000
         logging.debug(f"Elapsed {round(elapsed)} microseconds, Selected {sorted_G[0][0]}, sorted G (piece, score): {sorted_G}")
         return sorted_G[0][0]
+
+    def check_children(self, mygame: Quarto, place, piece, this_agent, depth=0):
+        # logging.debug(f"checking place {place} and piece {piece} and depth {depth}")
+        depth+=1
+        # Play the game
+        gameCopy = self.copy_game(mygame)
+        gameCopy.select(piece)
+        gameCopy._Quarto__current_player = 1 - mygame._Quarto__current_player
+        gameCopy.place(*place)
+        winner = gameCopy.check_winner()
+        finished = gameCopy.check_finished()
+
+        # If game finishes and there is no children
+        if winner==this_agent:
+            return 1
+        elif winner==1-this_agent:
+            return -1
+        if finished:
+            return 0
+
+        # If game goes on
+        board_status = gameCopy.get_board_status()
+        free_pieces = self.get_free_pieces(board_status)
+        free_places = self.get_free_places(board_status)
+        value = 0
+        # check all the children of the children
+        for piece in free_pieces:
+            for place in free_places:
+                value += self.check_children(gameCopy, place, piece, this_agent, depth)
+        return value
 
     def MonteCarlo(self, pieces_with_zero_loss):
         # Do simple Monte Carlo
