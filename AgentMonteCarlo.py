@@ -6,7 +6,7 @@ import copy
 import datetime
 
 class AgentMonteCarlo(Player):
-    def __init__(self, game: Quarto, time_limit=250, simulate_policy=True):
+    def __init__(self, game: Quarto, time_limit=250, simulate_policy=False):
         self.game = game
         # How long should it take (in seconds) for place_piece() to return the answer
         self.time_limit = time_limit
@@ -61,6 +61,10 @@ class AgentMonteCarlo(Player):
         free_pieces = self.get_free_pieces(self.game.get_board_status())
         free_places = self.get_free_places(self.game.get_board_status())
         G={} 
+
+        if (len(free_pieces)>8 or len(free_places)>8):
+            return random.randint(0, 15)
+
         for piece in free_pieces:
             G[piece] = 0
         # Look in the future, Try each piece in every free place on board

@@ -138,12 +138,15 @@ class AgentRL(Player):
     
     def choose_piece(self) -> int:
         # logging.debug("Choose piece...")
-        if self.learn_flag or not self.choose_piece_enabled:
-            return random.randint(0, 15)
         board_status = self.game.get_board_status()
         free_pieces = self.get_free_pieces(board_status)
         free_places = self.get_free_places(board_status)
         score={} 
+
+        if (self.learn_flag or not self.choose_piece_enabled
+            or len(free_pieces)>8 or len(free_places)>8):
+            return random.randint(0, 15)
+
         for piece in free_pieces:
             score[piece] = 0
         pieces_with_zero_loss = []

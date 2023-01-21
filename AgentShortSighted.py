@@ -43,6 +43,10 @@ class AgentShortSighted(Player):
         free_pieces = self.get_free_pieces(board_status)
         free_places = self.get_free_places(board_status)
         G={} 
+
+        if (len(free_pieces)>8 or len(free_places)>8):
+            return random.randint(0, 15)
+
         for piece in free_pieces:
             G[piece] = 0
         # Look in the future, Try each piece in every free place on board
