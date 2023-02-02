@@ -21,7 +21,7 @@ game = Quarto()
 game.reset()
 game.set_players((
     AgentRandom(game),
-    AgentShortSighted(game)))
+    AgentRL(game, choose_piece_enabled=False)))
 evaluate(game, 1000,
     print_end_value="\r"
     )

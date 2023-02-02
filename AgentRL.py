@@ -121,7 +121,7 @@ class AgentRL(Player):
     def place_piece(self) -> tuple[int, int]:
         maxG = -10e15
         randomN = np.random.random()
-        if randomN < self.random_factor:
+        if self.learn_flag and randomN < self.random_factor:
             # if random number below random factor, choose random action
             return random.randint(0, 3), random.randint(0, 3)
         else:
