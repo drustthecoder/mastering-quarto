@@ -117,7 +117,21 @@ class AgentRL(Player):
                     score[piece]-=1
         sorted_score = sorted(score.items(), key=lambda item: item[1], reverse=True) 
         return sorted_score[0][0]
-            
+
+    def greedy_place_piece(self):
+        board_status = self.game.get_board_status()
+        free_places = self.get_free_places(board_status)
+        if (len(free_places)>13):
+            return False
+        for place in free_places:
+            gameCopy = self.copy_game(self.game)
+            gameCopy.place(*place)
+            winner = gameCopy.check_winner()
+            if winner==gameCopy._Quarto__current_player:
+                # we win
+                return place
+        return False
+
     def place_piece(self) -> tuple[int, int]:
         maxG = -10e15
         randomN = np.random.random()
@@ -125,6 +139,10 @@ class AgentRL(Player):
             # if random number below random factor, choose random action
             return random.randint(0, 3), random.randint(0, 3)
         else:
+            if not self.learn_flag:
+                greedy_place_piece = self.greedy_place_piece()
+                if greedy_place_piece:
+                    return greedy_place_piece
             # if exploiting, gather all possible actions and choose one with the highest G (reward)
             board_status = self.game.get_board_status()
             allowedMoves = self.get_free_places(board_status)
@@ -144,7 +162,7 @@ class AgentRL(Player):
         score={} 
 
         if (self.learn_flag or not self.choose_piece_enabled
-            or len(free_pieces)>8 or len(free_places)>8):
+            or len(free_pieces)>13):
             return random.randint(0, 15)
 
         for piece in free_pieces:
