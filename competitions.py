@@ -1,6 +1,4 @@
-from AgentShortSighted import AgentShortSighted
 from AgentRL import AgentRL
-from AgentMonteCarlo import AgentMonteCarlo
 from AgentRandom import AgentRandom
 from evaluate import evaluate
 from quarto import Quarto
@@ -21,7 +19,7 @@ game = Quarto()
 game.reset()
 game.set_players((
     AgentRandom(game),
-    AgentRL(game, choose_piece_enabled=False)))
+    AgentRL(game)))
 evaluate(game, 1000,
     print_end_value="\r"
     )

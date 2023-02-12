@@ -13,30 +13,33 @@ class AgentRL(Player):
 
         choose_piece_time_limit = 500,
 
-        choose_piece_enabled = True,
+        greedy_choose_piece_enabled = True,
 
         MonteCarlo_for_endgame_choose_piece_enabled = False,
-        MonteCarlo_simulate_policy_enabled = False,
-        MonteCarlo_endgame_num_of_pieces = 9,
-        MonteCarlo_endgame_num_of_places = 9,
+        MonteCarlo_endgame_num_of_pieces = 7,
+        MonteCarlo_endgame_num_of_places = 7,
 
         tree_search_for_endgame_choose_piece_enabled = False,
         tree_search_endgame_num_of_pieces = 5,
         tree_search_endgame_num_of_places = 5,
 
+        greedy_place_piece_enabled = True,
+        RL_place_piece_enabled = False,
+
         alpha=0.2,
-        random_factor=0.1):  # 80% explore, 20% exploit
+        random_factor=0.1):  #explore vs. exploit
 
         self.game = game
         self.MonteCarlo_for_endgame_choose_piece_enabled = MonteCarlo_for_endgame_choose_piece_enabled
-        self.MonteCarlo_simulate_policy_enabled = MonteCarlo_simulate_policy_enabled
         self.MonteCarlo_endgame_num_of_pieces = MonteCarlo_endgame_num_of_pieces
         self.MonteCarlo_endgame_num_of_places = MonteCarlo_endgame_num_of_places
         self.tree_search_endgame_num_of_pieces = tree_search_endgame_num_of_pieces
         self.tree_search_endgame_num_of_places = tree_search_endgame_num_of_places
         self.tree_search_for_endgame_choose_piece_enabled = tree_search_for_endgame_choose_piece_enabled
         self.choose_piece_time_limit = choose_piece_time_limit # microseconds
-        self.choose_piece_enabled = choose_piece_enabled
+        self.greedy_choose_piece_enabled = greedy_choose_piece_enabled
+        self.greedy_place_piece_enabled = greedy_place_piece_enabled
+        self.RL_place_piece_enabled = RL_place_piece_enabled
         self.state_history = []  # state, reward
         self.alpha = alpha
         self.random_factor = random_factor
@@ -81,43 +84,6 @@ class AgentRL(Player):
         gameCopy._Quarto__selected_piece_index = copy.deepcopy(mygame._Quarto__selected_piece_index)
         return gameCopy
 
-    def simulate_place_piece(self, mygame):
-        # Try piece in every free place and if results in win, return the found place
-        board_status = mygame.get_board_status()
-        free_places = self.get_free_places(board_status)
-        for place in free_places:
-            gameCopy = self.copy_game(mygame)
-            gameCopy.place(*place)
-            winner = gameCopy.check_winner()
-            if winner==gameCopy._Quarto__current_player:
-                # we win
-                return place
-        # No piece results in win, return a random one
-        return random.choice(free_places)
-
-    def simulate_choose_piece(self, mygame: Quarto) -> int:
-        # Look in the future, Try each piece in every free place on board
-        if self.learn_flag:
-            return random.randint(0, 15)
-        board_status = mygame.get_board_status()
-        free_pieces = self.get_free_pieces(board_status)
-        free_places = self.get_free_places(board_status)
-        score={} 
-        for piece in free_pieces:
-            score[piece] = 0
-        for piece in free_pieces:
-            for place in free_places:
-                gameCopy = self.copy_game(mygame)
-                gameCopy.select(piece)
-                gameCopy._Quarto__current_player = 1-gameCopy._Quarto__current_player
-                gameCopy.place(*place)
-                winner = gameCopy.check_winner()
-                if winner==gameCopy._Quarto__current_player:
-                    #opponent wins
-                    score[piece]-=1
-        sorted_score = sorted(score.items(), key=lambda item: item[1], reverse=True) 
-        return sorted_score[0][0]
-
     def greedy_place_piece(self):
         board_status = self.game.get_board_status()
         free_places = self.get_free_places(board_status)
@@ -132,39 +98,43 @@ class AgentRL(Player):
                 return place
         return False
 
-    def place_piece(self) -> tuple[int, int]:
+    def RL_place_piece(self):
+        # Gather all possible actions and choose one with the highest G (reward)
         maxG = -10e15
+        board_status = self.game.get_board_status()
+        allowedMoves = self.get_free_places(board_status)
+        for (c, r) in allowedMoves:
+            board_data = self.get_row_column_diagonals_as_states(board_status, c, r)
+            for state in board_data:
+                if self.G[state] >= maxG:
+                    place_here = (c, r)
+                    maxG = self.G[state]   
+        return place_here
+    
+    def place_piece(self) -> tuple[int, int]:
         randomN = np.random.random()
-        if self.learn_flag and randomN < self.random_factor:
-            # if random number below random factor, choose random action
-            return random.randint(0, 3), random.randint(0, 3)
-        else:
-            if not self.learn_flag:
+        # if the agent is not learning
+        if not self.learn_flag:
+            # Try to use greedy_place_piece frist and if didn't work use RL_place_piece
+            if self.greedy_place_piece_enabled:
                 greedy_place_piece = self.greedy_place_piece()
                 if greedy_place_piece:
                     return greedy_place_piece
-            # if exploiting, gather all possible actions and choose one with the highest G (reward)
-            board_status = self.game.get_board_status()
-            allowedMoves = self.get_free_places(board_status)
-            for (c, r) in allowedMoves:
-                board_data = self.get_row_column_diagonals_as_states(board_status, c, r)
-                for state in board_data:
-                    if self.G[state] >= maxG:
-                        place_here = (c, r)
-                        maxG = self.G[state]   
-        return place_here
-    
-    def choose_piece(self) -> int:
-        # logging.debug("Choose piece...")
-        board_status = self.game.get_board_status()
-        free_pieces = self.get_free_pieces(board_status)
-        free_places = self.get_free_places(board_status)
+            if self.RL_place_piece_enabled:
+                return self.RL_place_piece()
+            return random.randint(0, 3), random.randint(0, 3)
+        # if agent is learning
+        else:
+            # If it's time to explore, explore!
+            if randomN < self.random_factor:
+                # if random number below random factor, choose random action
+                return random.randint(0, 3), random.randint(0, 3)
+            # Exploit!
+            else:
+                return self.RL_place_piece()
+
+    def greedy_choose_piece(self, free_pieces, free_places):
         score={} 
-
-        if (self.learn_flag or not self.choose_piece_enabled
-            or len(free_pieces)>13):
-            return random.randint(0, 15)
-
         for piece in free_pieces:
             score[piece] = 0
         pieces_with_zero_loss = []
@@ -182,31 +152,52 @@ class AgentRL(Player):
             # if this piece does not result in loss in any place (never got a -1), add it to pieces_with_zero_loss
             if score[piece]==0:
                 pieces_with_zero_loss.append(piece)
+        return score, pieces_with_zero_loss
+    
+    def choose_piece(self) -> int:
+        # logging.debug("Choose piece...")
+        board_status = self.game.get_board_status()
+        free_pieces = self.get_free_pieces(board_status)
+        free_places = self.get_free_places(board_status)
+        candidate_pieces = free_pieces
+
+        if (self.learn_flag
+            or len(free_pieces)>13):
+            return random.randint(0, 15)
+
+        # If greedy choose piece is enabled, use tree search
+        if self.greedy_choose_piece_enabled:
+            score, candidate_pieces = self.greedy_choose_piece(free_pieces, free_places)
+
+            # We only have bad pieces, choose the one which is the least bad
+            if len(candidate_pieces)==0:
+                logging.debug("No no-loss piece! Returned the least bad piece!")
+                sorted_score = sorted(score.items(), key=lambda item: item[1], reverse=True) 
+                return sorted_score[0][0]
+            
+            # We have one best piece, return it
+            elif len(candidate_pieces)==1:
+                logging.debug("Returned the only no-loss piece!")
+                return candidate_pieces[0]
         
-        if len(pieces_with_zero_loss)==0:
-            # If we're here, we only have bad pieces, choose the one which is the least bad
-            sorted_score = sorted(score.items(), key=lambda item: item[1], reverse=True) 
-            # logging.debug("No winning piece! Returned the least bad piece!")
-            return sorted_score[0][0]
-        elif len(pieces_with_zero_loss)==1:
-            # we have one best piece, return it
-            # logging.debug("Returned the only no-loss piece!")
-            return pieces_with_zero_loss[0]
+        # If tree search is enabled for endgame, use tree search
         if (self.tree_search_for_endgame_choose_piece_enabled and
             len(free_places)<self.tree_search_endgame_num_of_places and
-            len(pieces_with_zero_loss)<self.tree_search_endgame_num_of_pieces):
+            len(candidate_pieces)<self.tree_search_endgame_num_of_pieces):
             # Do a tree search
-            return self.tree_search(pieces_with_zero_loss)
+            return self.tree_search(candidate_pieces)
+        
+        # If Monte Carlo is enabled for endgame, use Monte Carlo
         if (self.MonteCarlo_for_endgame_choose_piece_enabled and
             self.choose_piece_time_limit != 0 and
-            len(pieces_with_zero_loss) < self.MonteCarlo_endgame_num_of_pieces and
+            len(candidate_pieces) < self.MonteCarlo_endgame_num_of_pieces and
             len(free_places) < self.MonteCarlo_endgame_num_of_places):
             # Do a simple MonteCarlo
-            return self.MonteCarlo(pieces_with_zero_loss)
-        
+            return self.MonteCarlo(candidate_pieces)
+
+        logging.debug("Returned a random piece!")
         # random piece selection
-        # logging.debug("Too many pieces with zero loss, let's return a random one!")
-        return random.choice(pieces_with_zero_loss)
+        return random.choice(candidate_pieces)
 
     def tree_search(self, pieces_with_zero_loss):
         # Do a tree search
@@ -283,19 +274,13 @@ class AgentRL(Player):
                 game_winner=-1
                 while game_winner<0 and not gameCopy.check_finished():
                     # player chooses piece
-                    if self.MonteCarlo_simulate_policy_enabled:
-                        gameCopy.select(self.simulate_choose_piece(gameCopy))
-                    else:
-                        game_free_pieces = self.get_free_pieces(gameCopy.get_board_status())
-                        gameCopy.select(random.choice(game_free_pieces))
+                    game_free_pieces = self.get_free_pieces(gameCopy.get_board_status())
+                    gameCopy.select(random.choice(game_free_pieces))
                     # player changes
                     gameCopy._Quarto__current_player = 1-gameCopy._Quarto__current_player
                     # player places the piece
-                    if self.MonteCarlo_simulate_policy_enabled:
-                        gameCopy.place(*self.simulate_place_piece(gameCopy))
-                    else:
-                        game_free_places = self.get_free_places(gameCopy.get_board_status())
-                        gameCopy.place(*random.choice(game_free_places))
+                    game_free_places = self.get_free_places(gameCopy.get_board_status())
+                    gameCopy.place(*random.choice(game_free_places))
                     game_winner = gameCopy.check_winner()
                 # Give score to each place based on the result of the random play.
                 if game_winner==this_agent:
