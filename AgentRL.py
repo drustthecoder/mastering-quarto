@@ -87,6 +87,7 @@ class AgentRL(Player):
     def greedy_place_piece(self):
         board_status = self.game.get_board_status()
         free_places = self.get_free_places(board_status)
+        # If we have more than 13 free places on board, we're placing the 1st, 2nd or 3rd piece and it doesn't matter!
         if (len(free_places)>13):
             return False
         for place in free_places:
