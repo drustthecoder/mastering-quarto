@@ -1,15 +1,12 @@
-# Final project: Quarto
-
-For the final project, we decided to work on several algorithms and see which ones works the best.
+# Mastering Quarto
+In this project, we aim to create a powerful AI player for the game of Quarto by leveraging a combination of reinforcement learning and heuristic strategies. Quarto is a strategic board game that presents unique challenges in terms of decision-making and pattern recognition. Our goal is to develop algorithms that can not only compete against human players but consistently win the game.
 
 ## Team
-Zohreh Lahijaniamiri (s300451) and Shayan Taghinezhad Roudbaraki (s301425) worked on this project together. We worked on the ideas together and all of them are created after having conversations about the general algorithms and implementations.
-
-Zohreh wrote these algorithms:
+Zohreh Lahijaniamiri (s300451) responsibilities:
 - Greedy algorithm for place piece
 - Greedy algorithm for choose piece
 
-Shayan wrote these algorithms:
+Shayan Taghinezhad Roudbaraki (s301425) responsibilities:
 - Tree search algorithm for choose piece
 - Monte Carlo algorithm for choose piece
 - Reinforcement Learning algorithm for place piece
